@@ -1,0 +1,74 @@
+Imports System.IO
+Imports System.Data
+Imports System.Data.SqlClient
+
+Partial Class AddVideo
+    Inherits System.Web.UI.Page
+
+    Protected Sub Page_Load(ByVal sender As Object, ByVal e As System.EventArgs) Handles Me.Load
+        If IsPostBack = False Then
+
+            Db.cmd.CommandText = "Select DISTINCT GroupId, GroupName From GroupTrans Where UserId = '" & Session("username") & "' "
+            Dim r As SqlDataReader = Db.cmd.ExecuteReader
+            ddGroup.Items.Add("All")
+            While r.Read
+                ddGroup.Items.Add(r(0) & ":" & r(1))
+            End While
+            r.Close()
+
+            RefAll()
+
+            If Db.tmp <> "" Then
+                Db.cmd.CommandText = "Select GroupName From GroupMaster Where GroupID = '" & Db.tmp & "' "
+                Dim group_name As String = Db.cmd.ExecuteScalar
+                ddGroup.SelectedValue = Db.tmp & ":" & group_name
+                Db.tmp = ""
+            End If
+
+        End If
+    End Sub
+
+    Private Sub RefAll()
+        txtID.Text = ""
+        txtAboutVideo.Text = ""
+        txtDuration.Text = ""
+        txtName.Text = ""
+        ddGroup.SelectedIndex = 0
+        Db.cmd.CommandText = "Select COUNT(*)+1 From VideoTable"
+        If Integer.Parse(Db.cmd.ExecuteScalar().ToString()) = 0 Then
+            txtID.Text = "V001"
+        Else
+            txtID.Text = "V" & Integer.Parse(Db.cmd.ExecuteScalar().ToString()).ToString("000")
+        End If
+    End Sub
+
+    Protected Sub btnSubmit_Click(ByVal sender As Object, ByVal e As System.EventArgs) Handles btnSubmit.Click
+        Try
+
+            If FileUpload1.HasFile = False Then
+                lblstatus.Text = "Browse for Video"
+                Return
+            End If
+
+            Db.cmd.CommandText = "Select Status From UserTable Where UserId = '" & Session("username") & "' "
+
+            If Db.cmd.ExecuteScalar() = "BLOCKED" Then
+                lblstatus.Text = "Your Account has been Blocked!"
+                Return
+            End If
+
+            Db.cmd.CommandText = "Select Username From UserTable Where UserId = '" & Session("username") & "' "
+            Dim user_name As String = Db.cmd.ExecuteScalar
+
+            Dim file_name As String = txtID.Text & Path.GetExtension(FileUpload1.PostedFile.FileName)
+            FileUpload1.PostedFile.SaveAs(Server.MapPath(".") & "/Uploads/" & file_name)
+
+            Db.cmd.CommandText = "Insert Into VideoTable Values('" & txtID.Text & "','" & txtName.Text & "','" & ddGroup.Text.Split(":")(0) & "','" & Session("username") & "','" & user_name & "','" & DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss tt") & "','" & txtDuration.Text & "','" & txtAboutVideo.Text & "','" & file_name & "',0,0)"
+            Db.cmd.ExecuteNonQuery()
+            RefAll()
+            lblstatus.Text = "Video Added Successfull!"
+        Catch ex As Exception
+            lblstatus.Text = ex.Message.ToString()
+        End Try
+    End Sub
+End Class
